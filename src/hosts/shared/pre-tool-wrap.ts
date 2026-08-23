@@ -17,9 +17,15 @@ import { constants as fsConstants } from "node:fs";
 import { access } from "node:fs/promises";
 import { delimiter, isAbsolute, join, resolve } from "node:path";
 
-import { stripLeadingCdPrefix, tokenizeCommand } from "../../core/command.js";
+import { stripLeadingCdPrefix } from "../../core/command.js";
 
-import { isNodeExecutablePath, isTokenjuiceExecutablePath, shellQuote } from "./hook-command.js";
+import {
+  isNodeExecutablePath,
+  isTokenjuiceExecutablePath,
+  parseShellWords,
+  posixShellQuote,
+  shellQuote,
+} from "./hook-command.js";
 
 export type WrapLauncherOptions = {
   /** When true, bypass the `PATH` lookup for an installed tokenjuice binary and route through the caller's build. */
@@ -190,10 +196,10 @@ export function buildWrappedCommand(params: {
 }): string {
   const nodePath = params.nodePath ?? process.execPath;
   const launcherCommand = params.wrapLauncher.endsWith(".js")
-    ? `${shellQuote(nodePath)} ${shellQuote(params.wrapLauncher)}`
-    : shellQuote(params.wrapLauncher);
-  const sourceArgs = params.source ? ` --source ${shellQuote(params.source)}` : "";
-  return `${launcherCommand} wrap${sourceArgs} -- ${shellQuote(params.shellPath)} -lc ${shellQuote(params.command)}`;
+    ? `${posixShellQuote(nodePath)} ${posixShellQuote(params.wrapLauncher)}`
+    : posixShellQuote(params.wrapLauncher);
+  const sourceArgs = params.source ? ` --source ${posixShellQuote(params.source)}` : "";
+  return `${launcherCommand} wrap${sourceArgs} -- ${posixShellQuote(params.shellPath)} -lc ${posixShellQuote(params.command)}`;
 }
 
 /**
@@ -209,7 +215,9 @@ export function buildWrappedCommand(params: {
  * (e.g. the user invoked `tokenjuice wrap --raw -- <cmd>` explicitly).
  */
 export function commandAlreadyWrapped(command: string): boolean {
-  const argv = tokenizeCommand(stripLeadingCdPrefix(command));
+  // PreToolUse hosts execute this command through a POSIX shell, including
+  // Bash-compatible shells on Windows.
+  const argv = parseShellWords(stripLeadingCdPrefix(command), "linux");
   if (argv.length < 2) {
     return false;
   }

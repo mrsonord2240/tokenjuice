@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { extractHookCommandPaths, parseShellWords, shellQuote } from "../../../src/hosts/shared/hook-command.js";
+import {
+  extractHookCommandPaths,
+  parseShellWords,
+  posixShellQuote,
+  shellQuote,
+} from "../../../src/hosts/shared/hook-command.js";
 
 describe("shellQuote", () => {
   it("leaves unspaced Windows paths unquoted", () => {
@@ -17,6 +22,18 @@ describe("shellQuote", () => {
 });
 
 describe("parseShellWords", () => {
+  it("preserves backslashes inside POSIX single quotes", () => {
+    const path = String.raw`C:\Users\me\bin\tokenjuice.cmd`;
+
+    expect(parseShellWords(`${posixShellQuote(path)} wrap`, "linux")).toEqual([path, "wrap"]);
+  });
+
+  it("preserves ordinary backslashes inside POSIX double quotes", () => {
+    const path = String.raw`C:\Program Files\tokenjuice.cmd`;
+
+    expect(parseShellWords(`"${path}" wrap`, "linux")).toEqual([path, "wrap"]);
+  });
+
   it("preserves backslashes in unquoted Windows launcher commands", () => {
     expect(parseShellWords(String.raw`C:\Users\andre\bin\tokenjuice.exe codex-post-tool-use`, "win32")).toEqual([
       String.raw`C:\Users\andre\bin\tokenjuice.exe`,
